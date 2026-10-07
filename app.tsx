@@ -167,6 +167,11 @@ function StatusIndicator({ thread }: { thread: PluginSidebarThread }) {
   );
 }
 
+/**
+ * SDK 0.6.15 exposes agent identity, not the company of the last executed model.
+ * Keep company metadata absent rather than infer it from providerId or model IDs.
+ * https://github.com/get-bb/bb/tree/main/packages/plugin-sdk
+ */
 function ThreadRow({
   activeThreadId,
   onNavigate,
