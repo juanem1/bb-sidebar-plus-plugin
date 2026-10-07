@@ -161,3 +161,77 @@ await test("moves cannot change membership across sections", async (): Promise<v
     assert.deepEqual((await host.call("getProjectVisibility", null)).pinnedProjectIds, ["a"]);
   });
 });
+
+await test("a fresh backend instance restores preferences from a new SQLite connection", async (): Promise<void> => {
+  await withHost(async (host, path): Promise<void> => {
+    await host.call("pinProject", { projectId: "b" });
+    await host.call("hideProject", { projectId: "c" });
+    await host.call("setGrouping", { grouping: "none" });
+    await host.call("setShowSearch", { showSearch: true });
+    await host.call("collapseProject", { projectId: "a" });
+    const saved: ProjectVisibilityState = await host.call("getProjectVisibility", null);
+    const restarted: SidebarHost = new SidebarHost(path);
+    try {
+      await restarted.start();
+      assert.deepEqual(await restarted.call("getProjectVisibility", null), saved);
+    } finally {
+      restarted.database.close();
+    }
+  });
+});
+
+await test("concurrent requests retain both changes and broadcast ordered snapshots to two consumers", async (): Promise<void> => {
+  await withHost(async (host): Promise<void> => {
+    const initial: ProjectVisibilityState = await host.call("getProjectVisibility", null);
+    const states: ProjectVisibilityState[] = await Promise.all([
+      host.call("pinProject", { projectId: "a" }),
+      host.call("hideProject", { projectId: "b" }),
+      host.call("setGrouping", { grouping: "none" }),
+    ]);
+    const final: ProjectVisibilityState = await host.call("getProjectVisibility", null);
+    assert.deepEqual(final.pinnedProjectIds, ["a"]);
+    assert.deepEqual(final.hiddenProjectIds, ["b"]);
+    assert.equal(final.grouping, "none");
+    assert.deepEqual(states.map((state) => state.revision), [initial.revision + 1, initial.revision + 2, initial.revision + 3]);
+    assert.deepEqual(host.windows[0], host.windows[1]);
+    assert.deepEqual(host.windows[0]?.at(-1), final);
+  });
+});
+
+await test("a real SQLite write rejection is explicit and does not broadcast or poison the queue", async (): Promise<void> => {
+  await withHost(async (host): Promise<void> => {
+    const initial: ProjectVisibilityState = await host.call("getProjectVisibility", null);
+    const broadcasts: number = host.windows[0]?.length ?? 0;
+    host.database.exec("PRAGMA query_only = ON");
+    await assert.rejects(host.call("pinProject", { projectId: "a" }), /not saved/);
+    assert.equal(host.windows[0]?.length, broadcasts);
+    assert.deepEqual(await host.call("getProjectVisibility", null), initial);
+    assert.ok(host.logs.some((line) => JSON.parse(line).event === "sidebar_preferences_write_failed"));
+    host.database.exec("PRAGMA query_only = OFF");
+    assert.deepEqual((await host.call("pinProject", { projectId: "b" })).pinnedProjectIds, ["b"]);
+  });
+});
+
+await test("storage read failure is actionable and never silently initializes preferences", async (): Promise<void> => {
+  await withHost(async (host): Promise<void> => {
+    host.database.exec("DROP TABLE preferences");
+    await assert.rejects(host.call("getProjectVisibility", null), /could not read/);
+    assert.equal(host.windows[0]?.length, 0);
+    assert.ok(host.logs.some((line) => JSON.parse(line).event === "sidebar_preferences_read_failed"));
+  });
+});
+
+await test("deleted projects leave no stale pinned, hidden, collapsed, or ordered IDs", async (): Promise<void> => {
+  await withHost(async (host): Promise<void> => {
+    await host.call("pinProject", { projectId: "a" });
+    await host.call("hideProject", { projectId: "b" });
+    await host.call("collapseProject", { projectId: "a" });
+    host.projects = host.projects.filter((project) => project.id === "c");
+    const state: ProjectVisibilityState = await host.call("syncProjects", null);
+    assert.deepEqual(state.projectOrder, ["c"]);
+    assert.deepEqual(state.pinnedProjectIds, []);
+    assert.deepEqual(state.hiddenProjectIds, []);
+    assert.deepEqual(state.collapsedProjectIds, []);
+    await assert.rejects(host.call("pinProject", { projectId: "a" }), /no longer exists/);
+  });
+});
