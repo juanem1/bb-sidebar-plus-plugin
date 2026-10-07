@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import type {
   PluginSidebarProject,
   PluginSidebarThread,
@@ -8,9 +9,12 @@ import {
   definePluginApp,
   experimental_useSidebarThreadActions,
   experimental_useSidebarThreads,
+  experimental_useSidebarThreadSplit,
 } from "@get-bb/plugin-sdk/app";
 import { HiddenProjectRow, ProjectControls } from "./project-controls";
 import { useProjectVisibility } from "./use-project-visibility";
+import { SidebarHeader } from "./sidebar-header";
+import { ProjectOrder } from "./project-order";
 
 const ACTIVE_RUNTIME_STATUSES: Record<PluginSidebarThread["runtimeStatus"], boolean> = {
   active: true,
@@ -173,12 +177,14 @@ function ThreadRow({
   thread: PluginSidebarThread;
 }) {
   const actions = experimental_useSidebarThreadActions();
+  const split = experimental_useSidebarThreadSplit(thread.id);
   const branchName = thread.environment?.branchName;
   const isActive = activeThreadId === thread.id;
 
   return (
     <li>
       <a
+        {...split.splitProps}
         aria-current={isActive ? "page" : undefined}
         className={[
           "flex items-start gap-3 rounded-md px-3 py-2 outline-none transition-colors",
@@ -238,6 +244,7 @@ function ProjectSection({
   pinned,
   threads,
   visibility,
+  handle,
 }: {
   activeThreadId: string | null;
   onNavigate: () => void;
@@ -245,143 +252,114 @@ function ProjectSection({
   pinned: boolean;
   threads: readonly PluginSidebarThread[];
   visibility: ReturnType<typeof useProjectVisibility>;
-}) {
+  handle: ReactElement;
+}): ReactElement {
+  const collapsed: boolean = visibility.state?.collapsedProjectIds.includes(project.id) === true;
   return (
     <section className="rounded-lg bg-sidebar/40">
-      <header className="flex items-center gap-2 px-3 py-2">
-        <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-sidebar-foreground">
-          {project.name}
-        </h2>
-        <ProjectControls project={project} pinned={pinned} visibility={visibility} />
+      <header className="flex items-center gap-1 px-2 py-2">
+        {handle}
+        <button
+          aria-expanded={!collapsed}
+          aria-label={`${collapsed ? "Expand" : "Collapse"} ${project.name}`}
+          className="min-w-0 flex-1 truncate text-left text-sm font-semibold"
+          disabled={visibility.pending}
+          onClick={() => { void (collapsed ? visibility.expandProject(project.id) : visibility.collapseProject(project.id)); }}
+          type="button"
+        >
+          <span aria-hidden="true" className="mr-1">{collapsed ? "▸" : "▾"}</span>{project.name}
+        </button>
+        <ProjectControls project={project} pinned={pinned} visibility={visibility} onNavigate={onNavigate} />
       </header>
-      {threads.length === 0 ? (
-        <p className="px-3 py-3 text-xs text-muted-foreground">
-          No visible threads.
-        </p>
+      {collapsed ? null : threads.length === 0 ? (
+        <p className="px-3 py-3 text-xs text-muted-foreground">No visible threads.</p>
       ) : (
         <ul className="p-2">
-          {threads.map((thread) => (
-            <ThreadRow
-              key={thread.id}
-              activeThreadId={activeThreadId}
-              onNavigate={onNavigate}
-              thread={thread}
-            />
-          ))}
+          {threads.map((thread) => <ThreadRow key={thread.id} activeThreadId={activeThreadId} onNavigate={onNavigate} thread={thread} />)}
         </ul>
       )}
     </section>
   );
 }
 
-function SidebarPlusThreadList({
-  activeThreadId,
-  onNavigate,
-}: PluginThreadListProps) {
+function orderProjects(projects: readonly PluginSidebarProject[], ids: readonly string[]): PluginSidebarProject[] {
+  const byId: ReadonlyMap<string, PluginSidebarProject> = new Map(projects.map((project) => [project.id, project]));
+  const ordered: PluginSidebarProject[] = [];
+  for (const id of ids) {
+    const project: PluginSidebarProject | undefined = byId.get(id);
+    if (project !== undefined) ordered.push(project);
+  }
+  const saved: ReadonlySet<string> = new Set(ids);
+  ordered.push(...projects.filter((project) => !saved.has(project.id)));
+  return ordered;
+}
+
+function SidebarPlusThreadList({ activeThreadId, onNavigate }: PluginThreadListProps): ReactElement {
   const { projects, status, threads } = experimental_useSidebarThreads();
   const visibility = useProjectVisibility();
-  const threadsByProjectId = getVisibleThreadsByProjectId(threads);
+  const [query, setQuery] = useState<string>("");
+  const lastProjects = useRef<string | null>(null);
+  const projectKey: string = JSON.stringify(projects.map((project) => project.id).sort());
 
-  if (status === "loading") {
-    return (
-      <div className="px-3 py-4">
-        <p className="text-sm text-muted-foreground">Loading projects…</p>
-      </div>
-    );
+  useEffect(() => {
+    if (status !== "ready" || visibility.state === null || projectKey === lastProjects.current) return;
+    lastProjects.current = projectKey;
+    void visibility.syncProjects();
+  }, [status, projectKey, visibility.state, visibility.syncProjects]);
+
+  if (status === "loading" || (visibility.loading && visibility.state === null)) {
+    return <p role="status" className="px-3 py-4 text-sm text-muted-foreground">Loading projects…</p>;
   }
-
   if (status === "error") {
-    return (
-      <div className="px-3 py-4">
-        <p className="text-sm text-destructive">
-          Sidebar Plus could not load the sidebar thread data.
-        </p>
-      </div>
-    );
+    return <p role="alert" className="px-3 py-4 text-sm text-destructive">Sidebar Plus could not load the sidebar thread data.</p>;
+  }
+  if (visibility.state === null) {
+    return <p role="alert" className="px-3 py-4 text-sm text-destructive">{visibility.error ?? "Project preferences are unavailable. Reconnect or contact the maintainer."}</p>;
   }
 
-  if (visibility.loading && visibility.state === null) {
-    return (
-      <div className="px-3 py-4" role="status">
-        <p className="text-sm text-muted-foreground">Loading project preferences…</p>
-      </div>
-    );
+  const state = visibility.state;
+  const hiddenIds: ReadonlySet<string> = new Set(state.hiddenProjectIds);
+  const pinnedIds: ReadonlySet<string> = new Set(state.pinnedProjectIds);
+  const search: string = state.showSearch ? query.trim().toLocaleLowerCase() : "";
+  const visibleProjects: PluginSidebarProject[] = orderProjects(projects.filter((project) => !hiddenIds.has(project.id)), state.projectOrder);
+  const matchingProjects: PluginSidebarProject[] = visibleProjects.filter((project) => project.name.toLocaleLowerCase().includes(search));
+  const pinnedProjects: PluginSidebarProject[] = orderProjects(matchingProjects.filter((project) => pinnedIds.has(project.id)), state.pinnedProjectIds);
+  const ordinaryProjects: PluginSidebarProject[] = matchingProjects.filter((project) => !pinnedIds.has(project.id));
+  const hiddenProjects: PluginSidebarProject[] = orderProjects(projects.filter((project) => hiddenIds.has(project.id)), state.projectOrder);
+  const threadsByProjectId: ReadonlyMap<string, readonly PluginSidebarThread[]> = getVisibleThreadsByProjectId(threads);
+  const matchingIds: ReadonlySet<string> = new Set(matchingProjects.map((project) => project.id));
+  const flatThreads: PluginSidebarThread[] = threads.filter((thread) => !thread.isHidden && matchingIds.has(thread.projectId)).sort(compareThreadsByUpdatedAtDescending);
+
+  function renderPinned(project: PluginSidebarProject, handle: ReactElement): ReactElement {
+    return <ProjectSection project={project} handle={handle} pinned={true} threads={threadsByProjectId.get(project.id) ?? []} visibility={visibility} activeThreadId={activeThreadId} onNavigate={onNavigate} />;
   }
-
-  if (visibility.error !== null || visibility.state === null) {
-    return (
-      <div className="px-3 py-4" role="alert">
-        <p className="text-sm text-destructive">
-          {visibility.error ?? "Project preferences are unavailable. Reload the plugin or contact its maintainer."}
-        </p>
-      </div>
-    );
-  }
-
-  const pinnedProjectIds = new Set(visibility.state.pinnedProjectIds);
-  const hiddenProjectIds = new Set(visibility.state.hiddenProjectIds);
-  const pinnedProjects = projects.filter(
-    (project) => pinnedProjectIds.has(project.id) && !hiddenProjectIds.has(project.id),
-  );
-  const ordinaryProjects = projects.filter(
-    (project) => !pinnedProjectIds.has(project.id) && !hiddenProjectIds.has(project.id),
-  );
-  const hiddenProjects = projects.filter((project) => hiddenProjectIds.has(project.id));
-
-  function renderProjects(projectsToRender: readonly PluginSidebarProject[], pinned: boolean) {
-    return projectsToRender.map((project) => (
-      <ProjectSection
-        key={project.id}
-        activeThreadId={activeThreadId}
-        onNavigate={onNavigate}
-        project={project}
-        pinned={pinned}
-        threads={threadsByProjectId.get(project.id) ?? []}
-        visibility={visibility}
-      />
-    ));
+  function renderOrdinary(project: PluginSidebarProject, handle: ReactElement): ReactElement {
+    return <ProjectSection project={project} handle={handle} pinned={false} threads={threadsByProjectId.get(project.id) ?? []} visibility={visibility} activeThreadId={activeThreadId} onNavigate={onNavigate} />;
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-3 px-3 py-3">
-      {pinnedProjects.length > 0 ? (
+    <div data-project-order-scroll="" className="flex min-h-full flex-col gap-3 px-3 py-3">
+      {state.grouping === "project" && pinnedProjects.length > 0 ? (
         <section aria-label="Pinned projects" className="flex flex-col gap-2">
-          <h2 className="px-1 text-sm font-semibold text-sidebar-foreground">
-            Pinned
-          </h2>
-          {renderProjects(pinnedProjects, true)}
+          <h2 className="px-1 text-sm font-semibold">Pinned</h2>
+          <ProjectOrder projects={pinnedProjects} pending={visibility.pending} move={visibility.movePinnedProject} render={renderPinned} />
         </section>
       ) : null}
-      <div className="px-1">
-        <h1 className="text-sm font-semibold text-sidebar-foreground">
-          Projects
-        </h1>
-      </div>
-      {ordinaryProjects.length === 0 ? (
-        <p className="px-1 text-sm text-muted-foreground">
-          {projects.length === 0 ? "No projects found." : "No projects in Projects."}
-        </p>
+      <SidebarHeader visibility={visibility} projects={visibleProjects} onNavigate={onNavigate} />
+      {state.showSearch ? <input aria-label="Search projects" type="search" placeholder="Search projects…" className="w-full rounded border border-sidebar-border bg-sidebar px-3 py-2 text-sm" value={query} onChange={(event) => setQuery(event.target.value)} /> : null}
+      {visibility.error !== null ? <p role="alert" className="rounded border border-destructive/50 p-2 text-xs text-destructive">{visibility.error}</p> : null}
+      {state.grouping === "none" ? (
+        flatThreads.length === 0 ? <p className="px-1 text-sm text-muted-foreground">No visible threads in matching projects.</p> : <ul aria-label="Threads">{flatThreads.map((thread) => <ThreadRow key={thread.id} thread={thread} activeThreadId={activeThreadId} onNavigate={onNavigate} />)}</ul>
+      ) : ordinaryProjects.length === 0 ? (
+        <p className="px-1 text-sm text-muted-foreground">{projects.length === 0 ? "No projects found." : "No matching projects in Projects."}</p>
       ) : (
-        <section aria-label="Projects" className="flex flex-col gap-2">
-          {renderProjects(ordinaryProjects, false)}
-        </section>
+        <section aria-label="Projects"><ProjectOrder projects={ordinaryProjects} pending={visibility.pending} move={visibility.moveProject} render={renderOrdinary} /></section>
       )}
       {hiddenProjects.length > 0 ? (
         <details className="border-t border-sidebar-border pt-2">
-          <summary className="cursor-pointer px-1 py-1 text-sm font-semibold text-sidebar-foreground">
-            Hidden projects ({hiddenProjects.length})
-          </summary>
-          <ul className="mt-1">
-            {hiddenProjects.map((project) => (
-              <HiddenProjectRow key={project.id} project={project} visibility={visibility} />
-            ))}
-          </ul>
+          <summary className="cursor-pointer px-1 py-1 text-sm font-semibold">Hidden projects ({hiddenProjects.length})</summary>
+          <ul className="mt-1">{hiddenProjects.map((project) => <HiddenProjectRow key={project.id} project={project} visibility={visibility} />)}</ul>
         </details>
-      ) : null}
-      {visibility.error !== null ? (
-        <p className="rounded border border-destructive/50 p-2 text-xs text-destructive" role="alert">
-          {visibility.error}
-        </p>
       ) : null}
     </div>
   );
