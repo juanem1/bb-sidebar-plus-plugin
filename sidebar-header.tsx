@@ -4,7 +4,9 @@ import { ProjectControls } from "./project-controls";
 import { ProjectOrder, type ProjectDragHandleProps } from "./project-order";
 import type { ProjectVisibilityController } from "./use-project-visibility";
 import { useDismissibleMenu } from "./hooks/useDismissibleMenu";
+import { useCenteredMenuPanel } from "./hooks/useCenteredMenuPanel";
 import { Icon } from "./ui/icon";
+import { Switch } from "./ui/switch";
 
 interface SidebarHeaderProps {
   visibility: ProjectVisibilityController;
@@ -17,6 +19,7 @@ interface SidebarHeaderProps {
 
 export function SidebarHeader({ visibility, projects, onNavigate, collapsed, onToggle, contentId }: SidebarHeaderProps): ReactElement {
   const menuRef: RefObject<HTMLDetailsElement | null> = useDismissibleMenu();
+  const panelRef: RefObject<HTMLDivElement | null> = useCenteredMenuPanel(menuRef);
   const state = visibility.state;
   if (state === null) throw new Error("SidebarHeader requires loaded preferences.");
   const pinned: ReadonlySet<string> = new Set(state.pinnedProjectIds);
@@ -35,7 +38,7 @@ export function SidebarHeader({ visibility, projects, onNavigate, collapsed, onT
       </div>
     );
   }
-  const controlClass: string = "flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-xs hover:bg-sidebar-accent";
+  const controlClass: string = "flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-state-hover";
   return (
     <header className="relative flex items-center gap-1 px-1 py-1">
       <h1 className="min-w-0 flex-1 text-sm font-bold text-muted-foreground">
@@ -45,13 +48,12 @@ export function SidebarHeader({ visibility, projects, onNavigate, collapsed, onT
       </h1>
       <details ref={menuRef} className="relative">
         <summary aria-label="Sidebar options" title="Sidebar options" className="flex cursor-pointer list-none items-center rounded p-1 hover:bg-sidebar-accent"><Icon name="SlidersHorizontal" aria-hidden="true" className="size-4" /></summary>
-        <div className="absolute right-0 z-20 mt-1 w-64 max-w-[80vw] rounded-md border border-sidebar-border bg-sidebar p-2 shadow-lg">
+        <div ref={panelRef} className="fixed z-50 w-64 max-w-[80vw] rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md">
           <fieldset disabled={visibility.pending} className="flex flex-col gap-1">
-            <legend className="px-2 text-xs font-semibold">Sidebar options</legend>
-            <label className={controlClass}>Group by<select value={state.grouping} onChange={(event) => { void visibility.setGrouping(event.target.value === "none" ? "none" : "project"); }}><option value="project">By project</option><option value="none">None</option></select></label>
-            <label className={controlClass}>Project order<select value={state.sorting} onChange={(event) => { void (event.target.value === "name" ? visibility.sortProjectsByName() : visibility.selectManualOrder()); }}><option value="name">By name</option><option value="manual">Manual</option></select></label>
-            <button className={controlClass} type="button" onClick={() => { void visibility.sortProjectsByName(); }}>Sort by name</button>
-            <label className={controlClass}>Show search<input type="checkbox" checked={state.showSearch} onChange={(event) => { void visibility.setShowSearch(event.target.checked); }} /></label>
+            <legend className="px-2 text-sm font-semibold">Sidebar options</legend>
+            <label className={controlClass}>Group by<select className="cursor-pointer" value={state.grouping} onChange={(event) => { void visibility.setGrouping(event.target.value === "none" ? "none" : "project"); }}><option value="project">By project</option><option value="none">None</option></select></label>
+            <label className={controlClass}>Project order<select className="cursor-pointer" value={state.sorting} onChange={(event) => { void (event.target.value === "name" ? visibility.sortProjectsByName() : visibility.selectManualOrder()); }}><option value="name">By name</option><option value="manual">Manual</option></select></label>
+            <label className={controlClass}>Show search<Switch checked={state.showSearch} onCheckedChange={(checked) => { void visibility.setShowSearch(checked); }} /></label>
           </fieldset>
           {state.grouping === "none" ? (
             <details className="mt-2 border-t border-sidebar-border pt-2">

@@ -340,7 +340,7 @@ function SidebarPlusThreadList({ activeThreadId, onNavigate }: PluginThreadListP
   const search: string = state.showSearch ? query.trim().toLocaleLowerCase() : "";
   const visibleProjects: PluginSidebarProject[] = orderProjects(projects.filter((project) => !hiddenIds.has(project.id)), state.projectOrder);
   const matchingProjects: PluginSidebarProject[] = visibleProjects.filter((project) => project.name.toLocaleLowerCase().includes(search));
-  const pinnedProjects: PluginSidebarProject[] = orderProjects(matchingProjects.filter((project) => pinnedIds.has(project.id)), state.pinnedProjectIds);
+  const pinnedProjects: PluginSidebarProject[] = orderProjects(visibleProjects.filter((project) => pinnedIds.has(project.id)), state.pinnedProjectIds);
   const ordinaryProjects: PluginSidebarProject[] = matchingProjects.filter((project) => !pinnedIds.has(project.id));
   const hiddenProjects: PluginSidebarProject[] = orderProjects(projects.filter((project) => hiddenIds.has(project.id)), state.projectOrder);
   const threadsByProjectId: ReadonlyMap<string, readonly PluginSidebarThread[]> = getVisibleThreadsByProjectId(threads);
@@ -371,7 +371,7 @@ function SidebarPlusThreadList({ activeThreadId, onNavigate }: PluginThreadListP
       {state.grouping === "project" && pinnedProjects.length > 0 ? <div role="separator" className="border-t border-sidebar-border" /> : null}
       <section aria-label="Projects section">
         <SidebarHeader visibility={visibility} projects={visibleProjects} onNavigate={onNavigate} collapsed={projectsCollapsed} onToggle={() => setProjectsCollapsed(!projectsCollapsed)} contentId={projectsContentId} />
-        {state.showSearch ? <input aria-label="Search projects" type="search" placeholder="Search projects…" className="mt-3 w-full rounded border border-sidebar-border bg-sidebar px-3 py-2 text-sm" value={query} onChange={(event) => setQuery(event.target.value)} /> : null}
+        {state.showSearch ? <input aria-label="Search projects" type="search" placeholder="Search projects…" className="mt-1 w-full rounded border border-sidebar-border bg-sidebar px-2 py-1 text-sm outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0" value={query} onChange={(event) => setQuery(event.target.value)} /> : null}
         {visibility.error !== null ? <p role="alert" className="mt-3 rounded border border-destructive/50 p-2 text-xs text-destructive">{visibility.error}</p> : null}
         <SlidingContent collapsed={projectsCollapsed} contentId={projectsContentId}>
           <div className="pt-1">

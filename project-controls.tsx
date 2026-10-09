@@ -3,7 +3,11 @@ import type { PluginSidebarProject } from "@get-bb/plugin-sdk/app";
 import { experimental_useSidebarThreadActions } from "@get-bb/plugin-sdk/app";
 import type { ProjectVisibilityController } from "./use-project-visibility";
 import { useDismissibleMenu } from "./hooks/useDismissibleMenu";
+import { useCenteredMenuPanel } from "./hooks/useCenteredMenuPanel";
 import { Icon } from "./ui/icon";
+
+// Mirrors the host dropdown menu item styling so plugin menus match native BB menus.
+const menuItemClass: string = "flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-[0.3125rem] text-left text-xs hover:bg-state-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
 
 interface ProjectControlsProps {
   project: PluginSidebarProject;
@@ -15,6 +19,7 @@ interface ProjectControlsProps {
 export function ProjectControls({ project, pinned, visibility, onNavigate }: ProjectControlsProps): ReactElement {
   const actions = experimental_useSidebarThreadActions();
   const menuRef: RefObject<HTMLDetailsElement | null> = useDismissibleMenu();
+  const panelRef: RefObject<HTMLDivElement | null> = useCenteredMenuPanel(menuRef);
   return (
     <div className="ml-auto flex shrink-0 items-center gap-1">
       <button
@@ -38,21 +43,23 @@ export function ProjectControls({ project, pinned, visibility, onNavigate }: Pro
         >
           <Icon name="MoreHorizontal" aria-hidden="true" className="size-4" />
         </summary>
-        <div className="absolute right-0 z-20 mt-1 min-w-32 rounded-md border border-sidebar-border bg-sidebar p-1 shadow-lg">
+        <div ref={panelRef} className="fixed z-50 min-w-32 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md">
           <button
-            className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-sidebar-accent"
+            className={menuItemClass}
             disabled={visibility.pending}
             onClick={() => { void (pinned ? visibility.unpinProject(project.id) : visibility.pinProject(project.id)); }}
             type="button"
           >
+            <Icon name={pinned ? "PinOff" : "Pin"} aria-hidden="true" className="size-4 shrink-0" />
             {pinned ? "Unpin" : "Pin"}
           </button>
           <button
-            className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-sidebar-accent"
+            className={menuItemClass}
             disabled={visibility.pending}
             onClick={() => { void visibility.hideProject(project.id); }}
             type="button"
           >
+            <Icon name="EyeOff" aria-hidden="true" className="size-4 shrink-0" />
             Hide
           </button>
         </div>

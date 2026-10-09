@@ -27,7 +27,7 @@ Projects behave like folders; threads behave like files inside those folders.
 | Show action | Remove the project from Hidden projects and return it to the ordinary Projects list. |
 | Grouping menu | Exactly `None` and `By project`; default: `By project`. No grouping by status. |
 | Flat grouping | `None` removes individual project names/headers and shows one flat list of visible threads, ordered most recently modified first. |
-| Project sorting menu | Exactly `By name` and `Manual`. The initial menu choice remains `By name`; clicking `Sort by name` explicitly reorders the current projects. It is not a continuously enforced alphabetical sort. |
+| Project sorting menu | Exactly `By name` and `Manual`. The initial menu choice remains `By name`; selecting `By name` explicitly reorders the current projects. It is not a continuously enforced alphabetical sort. |
 | Order preservation | Keep the positions set by the user until another manual move or explicit name-sort action; inserting a project must not reorder existing ones. |
 | Search | `Show search` is off by default. When enabled, match project names only, never thread titles, branches, model companies, or thread state. |
 | Thread ordering | Most recently modified thread first, independently of project order or grouping. State categories do not determine list priority. |
@@ -176,7 +176,7 @@ Confirmed rules are identified below. Other recommendations remain proposals for
 - Append each new project to the saved project sequence without disturbing existing positions.
 - A manual drag updates and persists that sequence and selects Manual.
 - Selecting Manual preserves the current sequence; it does not restore an older arrangement.
-- Clicking Sort by name alphabetizes the current sequence at that moment and saves the result.
+- Selecting By name alphabetizes the current sequence at that moment and saves the result.
 - Do not alphabetize again just because projects are rendered, updated, or added. The initial By name menu choice does not enable continuous sorting.
 - Name sorting and manual moves affect project positions only, never thread order.
 
@@ -192,6 +192,7 @@ Do not prioritize running, idle, unread, waiting, or error categories above a mo
 - By project shows project groups in the saved project order, with threads ordered by latest modification inside each group.
 - None removes individual project names/headers from the visible content and presents one globally ordered thread list.
 - Search matches only project names. Matching a thread title, branch, company, or status cannot include a project.
+- Search filters only the Projects section; Pinned and Hidden projects are never filtered.
 - In None mode, still filter projects by their names first, then collect and order their visible threads. Do not change the matching fields because project headers are absent.
 - A project-name match must not make a hidden project's threads visible. Recovery remains an explicit Show action.
 
@@ -273,7 +274,7 @@ This means a custom GitHub client may not be necessary. First verify the install
 - [ ] Unpinning the last visible pinned project removes the Pinned section.
 - [ ] Project sorting exposes only By name and Manual; neither changes thread order.
 - [ ] New projects append without moving existing projects, including after a prior name-sort action.
-- [ ] Manual positions persist; Sort by name reorders only when explicitly clicked and saves the result.
+- [ ] Manual positions persist; By name reorders only when explicitly selected and saves the result.
 - [ ] Threads are ordered by latest modification first, regardless of execution-state category.
 - [ ] Grouping exposes only By project and None; no status grouping exists.
 - [ ] None shows one flat visible thread list with no individual project names/headers and global latest-modification ordering.
