@@ -74,8 +74,7 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
     }
   }
 
-  async function synchronize(current: ProjectVisibilityState): Promise<ProjectVisibilityState> {
-    const projects: ProjectListResult = await listProjects();
+  async function synchronize(current: ProjectVisibilityState, projects: ProjectListResult): Promise<ProjectVisibilityState> {
     const ids: string[] = projects.map((project) => project.id);
     const existing: ReadonlySet<string> = new Set(ids);
     const order: string[] = current.projectOrder.filter((id) => existing.has(id));
@@ -101,9 +100,13 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
 
   function update(change: PreferenceChange): Promise<ProjectVisibilityResult> {
     return enqueue(async () => {
-      const current: ProjectVisibilityState = await synchronize(await readState());
+      const current: ProjectVisibilityState = await synchronize(await readState(), await listProjects());
       return { snapshot: await commitState(current, change(current)) };
     });
+  }
+
+  function getSynchronizedState(): Promise<ProjectVisibilityResult> {
+    return enqueue(async () => ({ snapshot: await synchronize(await readState(), await listProjects()) }));
   }
 
   function validateProject(current: ProjectVisibilityState, projectId: string): void {
@@ -156,25 +159,21 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
 
   function sortProjectsByName(): Promise<ProjectVisibilityResult> {
     return enqueue(async () => {
-      const current: ProjectVisibilityState = await synchronize(await readState());
+      // One project list for both steps: synchronize leaves only IDs from this list in projectOrder.
       const projects: ProjectListResult = await listProjects();
+      const current: ProjectVisibilityState = await synchronize(await readState(), projects);
       const names: ReadonlyMap<string, string> = new Map(projects.map((project) => [project.id, project.name]));
       const excluded: ReadonlySet<string> = new Set([...current.pinnedProjectIds, ...current.hiddenProjectIds]);
       const sorted: string[] = current.projectOrder.filter((id) => !excluded.has(id));
-      sorted.sort((left, right) => {
-        const leftName: string | undefined = names.get(left);
-        const rightName: string | undefined = names.get(right);
-        if (leftName === undefined || rightName === undefined) throw new SidebarPreferencesError("Projects changed while sorting. Retry Sort by name.");
-        return leftName.localeCompare(rightName, undefined, { sensitivity: "base" }) || left.localeCompare(right);
-      });
+      sorted.sort((left, right) => names.get(left)!.localeCompare(names.get(right)!, undefined, { sensitivity: "base" }) || left.localeCompare(right));
       let index: number = 0;
       return { snapshot: await commitState(current, { ...current, sorting: "name", projectOrder: current.projectOrder.map((id) => excluded.has(id) ? id : sorted[index++]!) }) };
     });
   }
 
   bb.rpc.register(sidebarRpcContract, {
-    getProjectVisibility: () => enqueue(async () => ({ snapshot: await synchronize(await readState()) })),
-    syncProjects: () => enqueue(async () => ({ snapshot: await synchronize(await readState()) })),
+    getProjectVisibility: () => getSynchronizedState(),
+    syncProjects: () => getSynchronizedState(),
     pinProject: ({ projectId }) => pinProject(projectId),
     unpinProject: ({ projectId }) => unpinProject(projectId),
     hideProject: ({ projectId }) => hideProject(projectId),

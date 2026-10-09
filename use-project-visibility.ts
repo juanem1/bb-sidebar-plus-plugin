@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRealtime, useRealtimeConnectionState, useRpc } from "@get-bb/plugin-sdk/app";
 import {
   PROJECT_VISIBILITY_CHANNEL,
-  projectVisibilitySignalSchema,
+  projectVisibilityResultSchema,
   projectVisibilityStateSchema,
   type ProjectVisibilityResult,
   type ProjectVisibilityState,
@@ -58,7 +58,7 @@ export function useProjectVisibility(): ProjectVisibilityController {
     } finally {
       setPendingCount((count) => count - 1);
     }
-  }, [rpc, acceptSnapshot]);
+  }, [acceptSnapshot]);
 
   useEffect(() => {
     let mounted: boolean = true;
@@ -82,7 +82,7 @@ export function useProjectVisibility(): ProjectVisibilityController {
   }, [connectionState, rpc, acceptSnapshot]);
 
   useRealtime(PROJECT_VISIBILITY_CHANNEL, (payload: unknown): void => {
-    const signal = projectVisibilitySignalSchema.safeParse(payload);
+    const signal = projectVisibilityResultSchema.safeParse(payload);
     if (!signal.success) {
       setError("Received an invalid Sidebar Plus update. Reconnect or contact the maintainer.");
       return;
