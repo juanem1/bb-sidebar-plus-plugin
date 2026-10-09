@@ -64,6 +64,9 @@ const ATTENTION_INDICATOR_CLASS_NAMES: Record<PluginSidebarThread["indicator"], 
   none: "bg-transparent",
 };
 
+/** Number of most recent threads shown per project before "Show more" is used. */
+const COLLAPSED_PROJECT_THREAD_LIMIT = 4;
+
 function compareThreadsByUpdatedAtDescending(
   left: PluginSidebarThread,
   right: PluginSidebarThread,
@@ -253,6 +256,7 @@ function ProjectSection({
   onNavigate,
   project,
   pinned,
+  sectionCollapsed,
   threads,
   visibility,
   dragHandleProps,
@@ -261,12 +265,26 @@ function ProjectSection({
   onNavigate: () => void;
   project: PluginSidebarProject;
   pinned: boolean;
+  /** Whether the enclosing Pinned or Projects section is collapsed. */
+  sectionCollapsed: boolean;
   threads: readonly PluginSidebarThread[];
   visibility: ReturnType<typeof useProjectVisibility>;
   dragHandleProps: ProjectDragHandleProps;
 }): ReactElement {
   const collapsed: boolean = visibility.state?.collapsedProjectIds.includes(project.id) === true;
   const contentId: string = useId();
+  const [showAllThreads, setShowAllThreads] = useState<boolean>(false);
+  const threadsHidden: boolean = collapsed || sectionCollapsed;
+  const [previousThreadsHidden, setPreviousThreadsHidden] = useState<boolean>(threadsHidden);
+  // Reset to the recent-threads limit during render when the threads are revealed again,
+  // so SlidingContent measures the limited height for its expand animation.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  if (threadsHidden !== previousThreadsHidden) {
+    setPreviousThreadsHidden(threadsHidden);
+    if (!threadsHidden) setShowAllThreads(false);
+  }
+  const hiddenThreadCount: number = showAllThreads ? 0 : Math.max(threads.length - COLLAPSED_PROJECT_THREAD_LIMIT, 0);
+  const shownThreads: readonly PluginSidebarThread[] = hiddenThreadCount > 0 ? threads.slice(0, COLLAPSED_PROJECT_THREAD_LIMIT) : threads;
   return (
     <section className="rounded-lg bg-sidebar/40">
       <header className="flex items-center gap-1 rounded-md px-1 py-1 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
@@ -288,9 +306,21 @@ function ProjectSection({
         {threads.length === 0 ? (
           <p className="px-3 py-3 text-xs text-muted-foreground">No visible threads.</p>
         ) : (
-          <ul className="py-2">
-            {threads.map((thread) => <ThreadRow key={thread.id} activeThreadId={activeThreadId} onNavigate={onNavigate} thread={thread} />)}
-          </ul>
+          <div className="py-2">
+            <ul>
+              {shownThreads.map((thread) => <ThreadRow key={thread.id} activeThreadId={activeThreadId} onNavigate={onNavigate} thread={thread} />)}
+            </ul>
+            {hiddenThreadCount > 0 ? (
+              <button
+                aria-label={`Show ${hiddenThreadCount} more threads in ${project.name}`}
+                className="mx-auto mt-1 block cursor-pointer rounded-md px-3 py-1 text-xs text-muted-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:bg-sidebar-accent focus-visible:text-sidebar-accent-foreground"
+                onClick={() => setShowAllThreads(true)}
+                type="button"
+              >
+                Show more
+              </button>
+            ) : null}
+          </div>
         )}
       </SlidingContent>
     </section>
@@ -352,10 +382,10 @@ function SidebarPlusThreadList({ activeThreadId, onNavigate }: PluginThreadListP
   const flatThreads: PluginSidebarThread[] = threads.filter((thread) => !thread.isHidden && matchingIds.has(thread.projectId)).sort(compareThreadsByUpdatedAtDescending);
 
   function renderPinned(project: PluginSidebarProject, dragHandleProps: ProjectDragHandleProps): ReactElement {
-    return <ProjectSection project={project} dragHandleProps={dragHandleProps} pinned={true} threads={threadsByProjectId.get(project.id) ?? []} visibility={visibility} activeThreadId={activeThreadId} onNavigate={onNavigate} />;
+    return <ProjectSection project={project} dragHandleProps={dragHandleProps} pinned={true} sectionCollapsed={pinnedCollapsed} threads={threadsByProjectId.get(project.id) ?? []} visibility={visibility} activeThreadId={activeThreadId} onNavigate={onNavigate} />;
   }
   function renderOrdinary(project: PluginSidebarProject, dragHandleProps: ProjectDragHandleProps): ReactElement {
-    return <ProjectSection project={project} dragHandleProps={dragHandleProps} pinned={false} threads={threadsByProjectId.get(project.id) ?? []} visibility={visibility} activeThreadId={activeThreadId} onNavigate={onNavigate} />;
+    return <ProjectSection project={project} dragHandleProps={dragHandleProps} pinned={false} sectionCollapsed={projectsCollapsed} threads={threadsByProjectId.get(project.id) ?? []} visibility={visibility} activeThreadId={activeThreadId} onNavigate={onNavigate} />;
   }
 
   return (
@@ -375,7 +405,7 @@ function SidebarPlusThreadList({ activeThreadId, onNavigate }: PluginThreadListP
       {state.grouping === "project" && pinnedProjects.length > 0 ? <div role="separator" className="border-t border-sidebar-border" /> : null}
       <section aria-label="Projects section">
         <SidebarHeader visibility={visibility} projects={visibleProjects} onNavigate={onNavigate} collapsed={projectsCollapsed} onToggle={() => setProjectsCollapsed(!projectsCollapsed)} contentId={projectsContentId} />
-        {state.showSearch ? <input aria-label="Search projects" type="search" placeholder="Search projects…" className="mt-1 w-full rounded border border-sidebar-border bg-sidebar px-2 py-1 text-sm outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0" value={query} onChange={(event) => setQuery(event.target.value)} /> : null}
+        {state.showSearch ? <input aria-label="Search projects" type="search" placeholder="Search projects…" className="mt-1 w-full rounded border border-sidebar-border bg-foreground/10 px-2 py-1 text-sm outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0" value={query} onChange={(event) => setQuery(event.target.value)} /> : null}
         {visibility.error !== null ? <p role="alert" className="mt-3 rounded border border-destructive/50 p-2 text-xs text-destructive">{visibility.error}</p> : null}
         <SlidingContent collapsed={projectsCollapsed} contentId={projectsContentId}>
           <div className="pt-1">

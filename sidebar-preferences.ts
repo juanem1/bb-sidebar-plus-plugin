@@ -44,10 +44,6 @@ export const projectVisibilityResultSchema = z.object({
   snapshot: projectVisibilityStateSchema,
 }).strict();
 
-export const projectVisibilitySignalSchema = z.object({
-  snapshot: projectVisibilityStateSchema,
-}).strict();
-
 export type ProjectVisibilityState = z.infer<typeof projectVisibilityStateSchema>;
 export type ProjectVisibilityResult = z.infer<typeof projectVisibilityResultSchema>;
 
