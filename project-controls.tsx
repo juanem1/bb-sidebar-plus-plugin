@@ -81,7 +81,7 @@ export function HiddenProjectRow({ project, visibility }: HiddenProjectRowProps)
         {project.name}
       </span>
       <button
-        className="shrink-0 rounded px-2 py-1 text-xs hover:bg-sidebar-accent"
+        className="shrink-0 cursor-pointer rounded px-2 py-1 text-xs hover:bg-sidebar-accent"
         disabled={visibility.pending}
         onClick={() => { void visibility.showProject(project.id); }}
         type="button"

@@ -15,6 +15,7 @@ import { HiddenProjectRow, ProjectControls } from "./project-controls";
 import { useProjectVisibility } from "./use-project-visibility";
 import { SidebarHeader } from "./sidebar-header";
 import { ProjectOrder, type ProjectDragHandleProps } from "./project-order";
+import { PullRequestIndicator } from "./pull-request-card";
 import { Icon } from "./ui/icon";
 import { SlidingContent } from "./ui/sliding-content";
 
@@ -231,11 +232,14 @@ function ThreadRow({
             <ThreadTitle threadId={thread.id} />
           </span>
           {branchName === null || branchName === undefined ? null : (
-            <span
-              className="mt-0.5 block truncate text-xs text-muted-foreground"
-              title={branchName}
-            >
-              {branchName}
+            <span className="mt-0.5 flex min-w-0 items-center gap-2">
+              <span
+                className="min-w-0 flex-1 truncate text-xs text-subtle-foreground"
+                title={branchName}
+              >
+                {branchName}
+              </span>
+              <PullRequestIndicator threadId={thread.id} />
             </span>
           )}
         </span>
