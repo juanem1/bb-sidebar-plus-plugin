@@ -1,7 +1,9 @@
-import type { ReactElement } from "react";
+import type { ReactElement, RefObject } from "react";
 import type { PluginSidebarProject } from "@get-bb/plugin-sdk/app";
 import { experimental_useSidebarThreadActions } from "@get-bb/plugin-sdk/app";
 import type { ProjectVisibilityController } from "./use-project-visibility";
+import { useDismissibleMenu } from "./hooks/useDismissibleMenu";
+import { Icon } from "./ui/icon";
 
 interface ProjectControlsProps {
   project: PluginSidebarProject;
@@ -12,26 +14,29 @@ interface ProjectControlsProps {
 
 export function ProjectControls({ project, pinned, visibility, onNavigate }: ProjectControlsProps): ReactElement {
   const actions = experimental_useSidebarThreadActions();
+  const menuRef: RefObject<HTMLDetailsElement | null> = useDismissibleMenu();
   return (
     <div className="ml-auto flex shrink-0 items-center gap-1">
       <button
         aria-label={`New thread in ${project.name}`}
         title="New thread"
-        className="rounded px-2 py-1 text-xs hover:bg-sidebar-accent"
+        className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-sidebar-accent"
         onClick={() => {
           actions.openNewThread({ projectId: project.id, focusPrompt: true });
           onNavigate();
         }}
         type="button"
       >
-        +
+        <svg aria-hidden="true" className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
       </button>
-      <details className="relative">
+      <details ref={menuRef} className="relative">
         <summary
           aria-label={`Actions for ${project.name}`}
-          className="cursor-pointer list-none rounded px-2 py-1 text-xs text-muted-foreground hover:bg-sidebar-accent"
+          className="flex cursor-pointer list-none items-center rounded px-2 py-1 text-xs text-muted-foreground hover:bg-sidebar-accent"
         >
-          More
+          <Icon name="MoreHorizontal" aria-hidden="true" className="size-4" />
         </summary>
         <div className="absolute right-0 z-20 mt-1 min-w-32 rounded-md border border-sidebar-border bg-sidebar p-1 shadow-lg">
           <button
@@ -63,8 +68,9 @@ interface HiddenProjectRowProps {
 
 export function HiddenProjectRow({ project, visibility }: HiddenProjectRowProps): ReactElement {
   return (
-    <li className="flex items-center gap-3 px-3 py-2">
-      <span className="min-w-0 flex-1 truncate text-sm text-sidebar-foreground" title={project.name}>
+    <li className="flex items-center gap-2 rounded-md px-1 py-1 text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+      <Icon name="Folder" aria-hidden="true" className="size-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate text-sm" title={project.name}>
         {project.name}
       </span>
       <button

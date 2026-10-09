@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useId, useRef, useState, type ReactElement } from "react";
 import type {
   PluginSidebarProject,
   PluginSidebarThread,
@@ -14,7 +14,9 @@ import {
 import { HiddenProjectRow, ProjectControls } from "./project-controls";
 import { useProjectVisibility } from "./use-project-visibility";
 import { SidebarHeader } from "./sidebar-header";
-import { ProjectOrder } from "./project-order";
+import { ProjectOrder, type ProjectDragHandleProps } from "./project-order";
+import { Icon } from "./ui/icon";
+import { SlidingContent } from "./ui/sliding-content";
 
 const ACTIVE_RUNTIME_STATUSES: Record<PluginSidebarThread["runtimeStatus"], boolean> = {
   active: true,
@@ -192,7 +194,7 @@ function ThreadRow({
         {...split.splitProps}
         aria-current={isActive ? "page" : undefined}
         className={[
-          "flex items-start gap-3 rounded-md px-3 py-2 outline-none transition-colors",
+          "grid grid-cols-[1rem_minmax(0,1fr)] items-start gap-2 rounded-md px-1 py-2 outline-none transition-colors",
           "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
           "focus-visible:bg-sidebar-accent focus-visible:text-sidebar-accent-foreground",
           isActive
@@ -223,7 +225,7 @@ function ThreadRow({
         <StatusIndicator thread={thread} />
         <span className="min-w-0 flex-1">
           <span
-            className="block truncate text-sm font-medium"
+            className="block truncate text-sm font-normal"
             title={thread.displayTitle}
           >
             <ThreadTitle threadId={thread.id} />
@@ -249,7 +251,7 @@ function ProjectSection({
   pinned,
   threads,
   visibility,
-  handle,
+  dragHandleProps,
 }: {
   activeThreadId: string | null;
   onNavigate: () => void;
@@ -257,32 +259,36 @@ function ProjectSection({
   pinned: boolean;
   threads: readonly PluginSidebarThread[];
   visibility: ReturnType<typeof useProjectVisibility>;
-  handle: ReactElement;
+  dragHandleProps: ProjectDragHandleProps;
 }): ReactElement {
   const collapsed: boolean = visibility.state?.collapsedProjectIds.includes(project.id) === true;
+  const contentId: string = useId();
   return (
     <section className="rounded-lg bg-sidebar/40">
-      <header className="flex items-center gap-1 px-2 py-2">
-        {handle}
+      <header className="flex items-center gap-1 rounded-md px-1 py-1 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
         <button
+          {...dragHandleProps}
           aria-expanded={!collapsed}
+          aria-controls={contentId}
           aria-label={`${collapsed ? "Expand" : "Collapse"} ${project.name}`}
-          className="min-w-0 flex-1 truncate text-left text-sm font-semibold"
-          disabled={visibility.pending}
+          className={`${dragHandleProps.className} flex min-w-0 flex-1 items-center gap-2 text-left text-sm font-normal`}
           onClick={() => { void (collapsed ? visibility.expandProject(project.id) : visibility.collapseProject(project.id)); }}
           type="button"
         >
-          <span aria-hidden="true" className="mr-1">{collapsed ? "▸" : "▾"}</span>{project.name}
+          <Icon name={collapsed ? "Folder" : "FolderOpen"} aria-hidden="true" className="size-4 shrink-0" />
+          <span className="truncate">{project.name}</span>
         </button>
         <ProjectControls project={project} pinned={pinned} visibility={visibility} onNavigate={onNavigate} />
       </header>
-      {collapsed ? null : threads.length === 0 ? (
-        <p className="px-3 py-3 text-xs text-muted-foreground">No visible threads.</p>
-      ) : (
-        <ul className="p-2">
-          {threads.map((thread) => <ThreadRow key={thread.id} activeThreadId={activeThreadId} onNavigate={onNavigate} thread={thread} />)}
-        </ul>
-      )}
+      <SlidingContent collapsed={collapsed} contentId={contentId}>
+        {threads.length === 0 ? (
+          <p className="px-3 py-3 text-xs text-muted-foreground">No visible threads.</p>
+        ) : (
+          <ul className="py-2">
+            {threads.map((thread) => <ThreadRow key={thread.id} activeThreadId={activeThreadId} onNavigate={onNavigate} thread={thread} />)}
+          </ul>
+        )}
+      </SlidingContent>
     </section>
   );
 }
@@ -303,6 +309,12 @@ function SidebarPlusThreadList({ activeThreadId, onNavigate }: PluginThreadListP
   const { projects, status, threads } = experimental_useSidebarThreads();
   const visibility = useProjectVisibility();
   const [query, setQuery] = useState<string>("");
+  const [pinnedCollapsed, setPinnedCollapsed] = useState<boolean>(false);
+  const [projectsCollapsed, setProjectsCollapsed] = useState<boolean>(false);
+  const [hiddenCollapsed, setHiddenCollapsed] = useState<boolean>(true);
+  const pinnedContentId: string = useId();
+  const projectsContentId: string = useId();
+  const hiddenContentId: string = useId();
   const lastProjects = useRef<string | null>(null);
   const projectKey: string = JSON.stringify(projects.map((project) => project.id).sort());
 
@@ -335,36 +347,56 @@ function SidebarPlusThreadList({ activeThreadId, onNavigate }: PluginThreadListP
   const matchingIds: ReadonlySet<string> = new Set(matchingProjects.map((project) => project.id));
   const flatThreads: PluginSidebarThread[] = threads.filter((thread) => !thread.isHidden && matchingIds.has(thread.projectId)).sort(compareThreadsByUpdatedAtDescending);
 
-  function renderPinned(project: PluginSidebarProject, handle: ReactElement): ReactElement {
-    return <ProjectSection project={project} handle={handle} pinned={true} threads={threadsByProjectId.get(project.id) ?? []} visibility={visibility} activeThreadId={activeThreadId} onNavigate={onNavigate} />;
+  function renderPinned(project: PluginSidebarProject, dragHandleProps: ProjectDragHandleProps): ReactElement {
+    return <ProjectSection project={project} dragHandleProps={dragHandleProps} pinned={true} threads={threadsByProjectId.get(project.id) ?? []} visibility={visibility} activeThreadId={activeThreadId} onNavigate={onNavigate} />;
   }
-  function renderOrdinary(project: PluginSidebarProject, handle: ReactElement): ReactElement {
-    return <ProjectSection project={project} handle={handle} pinned={false} threads={threadsByProjectId.get(project.id) ?? []} visibility={visibility} activeThreadId={activeThreadId} onNavigate={onNavigate} />;
+  function renderOrdinary(project: PluginSidebarProject, dragHandleProps: ProjectDragHandleProps): ReactElement {
+    return <ProjectSection project={project} dragHandleProps={dragHandleProps} pinned={false} threads={threadsByProjectId.get(project.id) ?? []} visibility={visibility} activeThreadId={activeThreadId} onNavigate={onNavigate} />;
   }
 
   return (
     <div data-project-order-scroll="" className="flex min-h-full flex-col gap-3 px-3 py-3">
       {state.grouping === "project" && pinnedProjects.length > 0 ? (
-        <section aria-label="Pinned projects" className="flex flex-col gap-2">
-          <h2 className="px-1 text-sm font-semibold">Pinned</h2>
-          <ProjectOrder projects={pinnedProjects} pending={visibility.pending} move={visibility.movePinnedProject} render={renderPinned} />
+        <section aria-label="Pinned projects">
+          <h2 className="px-1 py-1 text-sm font-bold text-muted-foreground">
+            <button aria-expanded={!pinnedCollapsed} aria-controls={pinnedContentId} className="flex w-full cursor-pointer items-center gap-2 text-left" onClick={() => setPinnedCollapsed(!pinnedCollapsed)} type="button">
+              <span className="flex items-center gap-1">Pinned<Icon name="ChevronRight" aria-hidden="true" className={pinnedCollapsed ? "size-4 shrink-0" : "size-4 shrink-0 rotate-90"} /></span>
+            </button>
+          </h2>
+          <SlidingContent collapsed={pinnedCollapsed} contentId={pinnedContentId}>
+            <div className="pt-1"><ProjectOrder projects={pinnedProjects} pending={visibility.pending} move={visibility.movePinnedProject} render={renderPinned} /></div>
+          </SlidingContent>
         </section>
       ) : null}
-      <SidebarHeader visibility={visibility} projects={visibleProjects} onNavigate={onNavigate} />
-      {state.showSearch ? <input aria-label="Search projects" type="search" placeholder="Search projects…" className="w-full rounded border border-sidebar-border bg-sidebar px-3 py-2 text-sm" value={query} onChange={(event) => setQuery(event.target.value)} /> : null}
-      {visibility.error !== null ? <p role="alert" className="rounded border border-destructive/50 p-2 text-xs text-destructive">{visibility.error}</p> : null}
-      {state.grouping === "none" ? (
-        flatThreads.length === 0 ? <p className="px-1 text-sm text-muted-foreground">No visible threads in matching projects.</p> : <ul aria-label="Threads">{flatThreads.map((thread) => <ThreadRow key={thread.id} thread={thread} activeThreadId={activeThreadId} onNavigate={onNavigate} />)}</ul>
-      ) : ordinaryProjects.length === 0 ? (
-        <p className="px-1 text-sm text-muted-foreground">{projects.length === 0 ? "No projects found." : "No matching projects in Projects."}</p>
-      ) : (
-        <section aria-label="Projects"><ProjectOrder projects={ordinaryProjects} pending={visibility.pending} move={visibility.moveProject} render={renderOrdinary} /></section>
-      )}
+      {state.grouping === "project" && pinnedProjects.length > 0 ? <div role="separator" className="border-t border-sidebar-border" /> : null}
+      <section aria-label="Projects section">
+        <SidebarHeader visibility={visibility} projects={visibleProjects} onNavigate={onNavigate} collapsed={projectsCollapsed} onToggle={() => setProjectsCollapsed(!projectsCollapsed)} contentId={projectsContentId} />
+        {state.showSearch ? <input aria-label="Search projects" type="search" placeholder="Search projects…" className="mt-3 w-full rounded border border-sidebar-border bg-sidebar px-3 py-2 text-sm" value={query} onChange={(event) => setQuery(event.target.value)} /> : null}
+        {visibility.error !== null ? <p role="alert" className="mt-3 rounded border border-destructive/50 p-2 text-xs text-destructive">{visibility.error}</p> : null}
+        <SlidingContent collapsed={projectsCollapsed} contentId={projectsContentId}>
+          <div className="pt-1">
+            {state.grouping === "none" ? (
+              flatThreads.length === 0 ? <p className="px-1 text-sm text-muted-foreground">No visible threads in matching projects.</p> : <ul aria-label="Threads">{flatThreads.map((thread) => <ThreadRow key={thread.id} thread={thread} activeThreadId={activeThreadId} onNavigate={onNavigate} />)}</ul>
+            ) : ordinaryProjects.length === 0 ? (
+              <p className="px-1 text-sm text-muted-foreground">{projects.length === 0 ? "No projects found." : "No matching projects in Projects."}</p>
+            ) : (
+              <section aria-label="Projects"><ProjectOrder projects={ordinaryProjects} pending={visibility.pending} move={visibility.moveProject} render={renderOrdinary} /></section>
+            )}
+          </div>
+        </SlidingContent>
+      </section>
+      {hiddenProjects.length > 0 ? <div role="separator" className="border-t border-sidebar-border" /> : null}
       {hiddenProjects.length > 0 ? (
-        <details className="border-t border-sidebar-border pt-2">
-          <summary className="cursor-pointer px-1 py-1 text-sm font-semibold">Hidden projects ({hiddenProjects.length})</summary>
-          <ul className="mt-1">{hiddenProjects.map((project) => <HiddenProjectRow key={project.id} project={project} visibility={visibility} />)}</ul>
-        </details>
+        <section aria-label="Hidden projects">
+          <h2 className="px-1 py-1 text-sm font-bold text-muted-foreground">
+            <button aria-expanded={!hiddenCollapsed} aria-controls={hiddenContentId} className="flex w-full cursor-pointer items-center gap-2 text-left" onClick={() => setHiddenCollapsed(!hiddenCollapsed)} type="button">
+              <span className="flex items-center gap-1">Hidden projects ({hiddenProjects.length})<Icon name="ChevronRight" aria-hidden="true" className={hiddenCollapsed ? "size-4 shrink-0" : "size-4 shrink-0 rotate-90"} /></span>
+            </button>
+          </h2>
+          <SlidingContent collapsed={hiddenCollapsed} contentId={hiddenContentId}>
+            <ul className="pt-1">{hiddenProjects.map((project) => <HiddenProjectRow key={project.id} project={project} visibility={visibility} />)}</ul>
+          </SlidingContent>
+        </section>
       ) : null}
     </div>
   );
