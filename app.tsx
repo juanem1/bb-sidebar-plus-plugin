@@ -244,7 +244,6 @@ function ThreadRow({
         <span className="flex min-w-0 items-center gap-2">
           <span
             className="min-w-0 flex-1 truncate text-sm font-normal"
-            title={thread.displayTitle}
           >
             <ThreadTitle threadId={thread.id} />
           </span>
@@ -324,8 +323,8 @@ function ProjectSection({
         {threads.length === 0 ? (
           <p className="px-3 py-3 text-xs text-muted-foreground">No visible threads.</p>
         ) : (
-          <div className="py-2">
-            <ul>
+          <div className="pt-1 pb-2">
+            <ul className="relative pl-[10px] before:pointer-events-none before:absolute before:inset-y-0 before:left-1 before:border-l before:border-sidebar-border">
               {shownThreads.map((thread) => <ThreadRow key={thread.id} activeThreadId={activeThreadId} onNavigate={onNavigate} thread={thread} projectName={project.name} />)}
             </ul>
             {hiddenThreadCount > 0 ? (
