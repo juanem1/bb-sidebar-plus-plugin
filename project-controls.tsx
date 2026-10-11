@@ -5,6 +5,7 @@ import { experimental_useSidebarThreadActions } from "@get-bb/plugin-sdk/app";
 import type { ProjectVisibilityController } from "./use-project-visibility";
 import { useDismissibleMenu } from "./hooks/useDismissibleMenu";
 import { useCenteredMenuPanel } from "./hooks/useCenteredMenuPanel";
+import { useHoverMenu } from "./hooks/useHoverMenu";
 import { usePortalScopeProps } from "./lib/portal-scope";
 import { Icon } from "./ui/icon";
 
@@ -26,40 +27,28 @@ function openProjectSettings(projectId: string): void {
 }
 
 interface ProjectControlsProps {
+  children: ReactElement;
   project: PluginSidebarProject;
   pinned: boolean;
   visibility: ProjectVisibilityController;
   onNavigate: () => void;
 }
 
-export function ProjectControls({ project, pinned, visibility, onNavigate }: ProjectControlsProps): ReactElement {
+export function ProjectControls({ children, project, pinned, visibility, onNavigate }: ProjectControlsProps): ReactElement {
   const actions = experimental_useSidebarThreadActions();
   const portalScopeProps = usePortalScopeProps();
   const panelRef: RefObject<HTMLDivElement | null> = useRef<HTMLDivElement | null>(null);
   const menuRef: RefObject<HTMLDetailsElement | null> = useDismissibleMenu(panelRef);
   useCenteredMenuPanel(menuRef, panelRef);
+  useHoverMenu(menuRef, panelRef);
   return (
-    <div className="ml-auto flex shrink-0 items-center gap-1">
-      <button
-        aria-label={`New thread in ${project.name}`}
-        title="New thread"
-        className="flex cursor-pointer items-center rounded px-2 py-1 hover:bg-sidebar-accent"
-        onClick={() => {
-          actions.openNewThread({ projectId: project.id, focusPrompt: true });
-          onNavigate();
-        }}
-        type="button"
-      >
-        <svg aria-hidden="true" className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-      </button>
-      <details ref={menuRef} className="relative">
+    <div className="flex min-w-0 flex-1 items-center gap-1">
+      <details ref={menuRef} className="relative min-w-0 flex-1">
         <summary
           aria-label={`Actions for ${project.name}`}
-          className="flex cursor-pointer list-none items-center rounded px-2 py-1 text-xs text-muted-foreground hover:bg-sidebar-accent"
+          className="flex cursor-pointer list-none items-center"
         >
-          <Icon name="MoreHorizontal" aria-hidden="true" className="size-4" />
+          {children}
         </summary>
         {createPortal(<div {...portalScopeProps} ref={panelRef} className="fixed z-50 min-w-32 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md">
           <button
@@ -94,6 +83,18 @@ export function ProjectControls({ project, pinned, visibility, onNavigate }: Pro
           </button>
         </div>, document.body)}
       </details>
+      <button
+        aria-label={`New thread in ${project.name}`}
+        title="New thread"
+        className="flex shrink-0 cursor-pointer items-center rounded px-2 py-1 hover:bg-sidebar-accent"
+        onClick={() => {
+          actions.openNewThread({ projectId: project.id, focusPrompt: true });
+          onNavigate();
+        }}
+        type="button"
+      >
+        <Icon name="MessageSquarePlus" aria-hidden="true" className="size-4" />
+      </button>
     </div>
   );
 }

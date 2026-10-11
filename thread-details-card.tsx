@@ -90,7 +90,7 @@ function PullRequestDetails({ pullRequest }: { pullRequest: PluginSidebarPullReq
         </UrlLink>
       </header>
       <div className="mt-2 border-l border-border pl-3">
-        <p className="text-base font-semibold text-foreground">{pullRequest.title}</p>
+        <p className="text-sm font-semibold text-foreground">{pullRequest.title}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           <PullRequestBadge caption="State" presentation={statePresentation} />
           {checksPresentation === undefined ? null : <PullRequestBadge caption="Checks" presentation={checksPresentation} />}
