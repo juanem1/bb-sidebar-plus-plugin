@@ -4,7 +4,7 @@ import type { PluginSidebarProject } from "@get-bb/plugin-sdk/app";
 import { experimental_useSidebarThreadActions } from "@get-bb/plugin-sdk/app";
 import type { ProjectVisibilityController } from "./use-project-visibility";
 import { useDismissibleMenu } from "./hooks/useDismissibleMenu";
-import { useCenteredMenuPanel } from "./hooks/useCenteredMenuPanel";
+import { useRightMenuPanel } from "./hooks/useRightMenuPanel";
 import { useHoverMenu } from "./hooks/useHoverMenu";
 import { usePortalScopeProps } from "./lib/portal-scope";
 import { Icon } from "./ui/icon";
@@ -27,6 +27,7 @@ function openProjectSettings(projectId: string): void {
 }
 
 interface ProjectControlsProps {
+  anchorRef: RefObject<HTMLElement | null>;
   children: ReactElement;
   project: PluginSidebarProject;
   pinned: boolean;
@@ -34,12 +35,12 @@ interface ProjectControlsProps {
   onNavigate: () => void;
 }
 
-export function ProjectControls({ children, project, pinned, visibility, onNavigate }: ProjectControlsProps): ReactElement {
+export function ProjectControls({ anchorRef, children, project, pinned, visibility, onNavigate }: ProjectControlsProps): ReactElement {
   const actions = experimental_useSidebarThreadActions();
   const portalScopeProps = usePortalScopeProps();
   const panelRef: RefObject<HTMLDivElement | null> = useRef<HTMLDivElement | null>(null);
   const menuRef: RefObject<HTMLDetailsElement | null> = useDismissibleMenu(panelRef);
-  useCenteredMenuPanel(menuRef, panelRef);
+  useRightMenuPanel(menuRef, panelRef, anchorRef);
   useHoverMenu(menuRef, panelRef);
   return (
     <div className="flex min-w-0 flex-1 items-center gap-1">

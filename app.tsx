@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ReactElement } from "react";
+import { useEffect, useId, useRef, useState, type ReactElement, type RefObject } from "react";
 import type {
   PluginProvidersState,
   PluginSidebarProject,
@@ -288,6 +288,7 @@ function ProjectSection({
   dragHandleProps: ProjectDragHandleProps;
 }): ReactElement {
   const collapsed: boolean = visibility.state?.collapsedProjectIds.includes(project.id) === true;
+  const headerRef: RefObject<HTMLElement | null> = useRef<HTMLElement | null>(null);
   const contentId: string = useId();
   const [showAllThreads, setShowAllThreads] = useState<boolean>(false);
   const threadsHidden: boolean = collapsed || sectionCollapsed;
@@ -303,8 +304,8 @@ function ProjectSection({
   const shownThreads: readonly PluginSidebarThread[] = hiddenThreadCount > 0 ? threads.slice(0, COLLAPSED_PROJECT_THREAD_LIMIT) : threads;
   return (
     <section className="rounded-lg bg-sidebar/40">
-      <header className="flex items-center gap-1 rounded-md px-1 py-1 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-        <ProjectControls project={project} pinned={pinned} visibility={visibility} onNavigate={onNavigate}>
+      <header ref={headerRef} className="flex items-center gap-1 rounded-md px-1 py-1 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+        <ProjectControls anchorRef={headerRef} project={project} pinned={pinned} visibility={visibility} onNavigate={onNavigate}>
           <button
             {...dragHandleProps}
             aria-expanded={!collapsed}

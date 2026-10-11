@@ -3,7 +3,7 @@ import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { experimental_useSidebarThreadActions, experimental_useSidebarThreadSplit } from "@get-bb/plugin-sdk/app";
 import { Icon } from "./ui/icon";
 
-const menuItemClass: string = "flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-[0.3125rem] text-left text-xs hover:bg-state-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
+const menuItemClass: string = "flex w-full cursor-pointer items-center gap-2 rounded-sm px-0 py-[0.3125rem] text-left text-xs hover:bg-state-hover hover:text-foreground disabled:pointer-events-none disabled:opacity-50";
 
 interface ThreadActionsProps {
   thread: PluginSidebarThread;
@@ -55,7 +55,7 @@ export function ThreadActions({ thread, onClose }: ThreadActionsProps): ReactEle
         {thread.isPinned ? "Unpin" : "Pin"}
       </button>
       {renaming ? (
-        <form className="my-1 flex flex-col gap-2 px-2" onSubmit={(event) => {
+        <form className="my-1 flex flex-col gap-2" onSubmit={(event) => {
           event.preventDefault();
           const nextTitle: string = title.trim();
           if (nextTitle.length === 0 || pending) return;
@@ -88,7 +88,7 @@ export function ThreadActions({ thread, onClose }: ThreadActionsProps): ReactEle
         <Icon name="Trash2" aria-hidden="true" className="size-4 shrink-0" />
         Delete
       </button>
-      {error === null ? null : <p role="alert" className="mt-2 px-2 text-xs text-destructive">Could not update this thread. Please try again.</p>}
+      {error === null ? null : <p role="alert" className="mt-2 text-xs text-destructive">Could not update this thread. Please try again.</p>}
     </section>
   );
 }
