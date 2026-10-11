@@ -1,16 +1,17 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, type RefObject } from "react";
 
 const VIEWPORT_MARGIN_PX: number = 8;
 const TRIGGER_GAP_PX: number = 4;
 
 /**
  * Positions a `<details>` dropdown panel with `position: fixed`, horizontally centered
- * under its `<summary>` trigger and clamped to the viewport so it is never clipped by
- * the narrow sidebar or the window edges. The panel must use the `fixed` class.
+ * under its `<summary>` trigger and clamped to the viewport. The panel must use the
+ * `fixed` class and be portaled to `document.body`: the host sidebar clips fixed
+ * descendants, so a panel rendered inside it gets cut at the sidebar edge.
+ * Opening the menu from the focused trigger (keyboard or click) moves focus into the panel,
+ * since the portal takes it out of the tab order; hover opening leaves focus alone.
  */
-export function useCenteredMenuPanel(menuRef: RefObject<HTMLDetailsElement | null>): RefObject<HTMLDivElement | null> {
-  const panelRef: RefObject<HTMLDivElement | null> = useRef<HTMLDivElement | null>(null);
-
+export function useCenteredMenuPanel(menuRef: RefObject<HTMLDetailsElement | null>, panelRef: RefObject<HTMLDivElement | null>): void {
   useEffect(() => {
     const menuElement: HTMLDetailsElement | null = menuRef.current;
     const panelElement: HTMLDivElement | null = panelRef.current;
@@ -20,14 +21,15 @@ export function useCenteredMenuPanel(menuRef: RefObject<HTMLDetailsElement | nul
     const ownerWindow: Window | null = menu.ownerDocument.defaultView;
     if (ownerWindow === null) throw new Error("Dropdown menu is not attached to a window.");
     const view: Window = ownerWindow;
+    const triggerElement: HTMLElement | null = menu.querySelector(":scope > summary");
+    if (triggerElement === null) throw new Error("Dropdown menu requires a direct <summary> trigger.");
+    const trigger: HTMLElement = triggerElement;
 
     function positionPanel(): void {
       if (!menu.open) {
         panel.style.visibility = "hidden";
         return;
       }
-      const trigger: HTMLElement | null = menu.querySelector(":scope > summary");
-      if (trigger === null) throw new Error("Dropdown menu requires a direct <summary> trigger.");
       const triggerRect: DOMRect = trigger.getBoundingClientRect();
       const panelWidth: number = panel.offsetWidth;
       const viewportWidth: number = menu.ownerDocument.documentElement.clientWidth;
@@ -39,16 +41,21 @@ export function useCenteredMenuPanel(menuRef: RefObject<HTMLDetailsElement | nul
       panel.style.visibility = "visible";
     }
 
+    function handleToggle(): void {
+      positionPanel();
+      if (!menu.open || menu.ownerDocument.activeElement !== trigger) return;
+      const firstControl: HTMLElement | null = panel.querySelector("button:not(:disabled), select:not(:disabled), input:not(:disabled)");
+      firstControl?.focus();
+    }
+
     panel.style.visibility = "hidden";
-    menu.addEventListener("toggle", positionPanel);
+    menu.addEventListener("toggle", handleToggle);
     view.addEventListener("resize", positionPanel);
     view.addEventListener("scroll", positionPanel, true);
     return () => {
-      menu.removeEventListener("toggle", positionPanel);
+      menu.removeEventListener("toggle", handleToggle);
       view.removeEventListener("resize", positionPanel);
       view.removeEventListener("scroll", positionPanel, true);
     };
-  }, [menuRef]);
-
-  return panelRef;
+  }, [menuRef, panelRef]);
 }

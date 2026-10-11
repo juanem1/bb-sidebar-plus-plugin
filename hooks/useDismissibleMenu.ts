@@ -1,6 +1,9 @@
 import { useEffect, useRef, type RefObject } from "react";
 
-export function useDismissibleMenu(): RefObject<HTMLDetailsElement | null> {
+/**
+ * Closes a `<details>` menu on a pointerdown outside both the menu and its portaled panel.
+ */
+export function useDismissibleMenu(panelRef: RefObject<HTMLDivElement | null>): RefObject<HTMLDetailsElement | null> {
   const menuRef: RefObject<HTMLDetailsElement | null> = useRef<HTMLDetailsElement | null>(null);
 
   useEffect(() => {
@@ -10,16 +13,18 @@ export function useDismissibleMenu(): RefObject<HTMLDetailsElement | null> {
     const ownerDocument: Document = menu.ownerDocument;
 
     function dismissOutside(event: PointerEvent): void {
-      if (menu.open && !event.composedPath().includes(menu)) {
-        menu.open = false;
-      }
+      if (!menu.open) return;
+      const path: EventTarget[] = event.composedPath();
+      const panel: HTMLDivElement | null = panelRef.current;
+      if (path.includes(menu) || (panel !== null && path.includes(panel))) return;
+      menu.open = false;
     }
 
     ownerDocument.addEventListener("pointerdown", dismissOutside, true);
     return () => {
       ownerDocument.removeEventListener("pointerdown", dismissOutside, true);
     };
-  }, []);
+  }, [panelRef]);
 
   return menuRef;
 }
