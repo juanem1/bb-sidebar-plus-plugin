@@ -159,7 +159,7 @@ export function ProjectControls({ anchorRef, children, project, pinned, visibili
       <button
         aria-label={`New thread in ${project.name}`}
         title="New thread"
-        className="flex shrink-0 cursor-pointer items-center rounded px-2 py-1 hover:bg-sidebar-accent"
+        className="-mr-1 flex shrink-0 cursor-pointer items-center rounded p-1 hover:bg-sidebar-accent"
         onClick={() => {
           actions.openNewThread({ projectId: project.id, focusPrompt: true });
           onNavigate();

@@ -32,8 +32,8 @@ export function SidebarHeader({ visibility, collapsed, onToggle, contentId }: Si
           <span className="flex items-center gap-1">All projects<Icon name="ChevronRight" aria-hidden="true" className={collapsed ? "size-4 shrink-0" : "size-4 shrink-0 rotate-90"} /></span>
         </button>
       </h1>
-      <details ref={menuRef} className="relative">
-        <summary aria-label="Sidebar options" title="Sidebar options" className="flex cursor-pointer list-none items-center rounded px-2 py-1 hover:bg-sidebar-accent"><Icon name="Settings" aria-hidden="true" className="size-4" /></summary>
+      <details ref={menuRef} className="relative -mr-1">
+        <summary aria-label="Sidebar options" title="Sidebar options" className="flex cursor-pointer list-none items-center rounded p-1 hover:bg-sidebar-accent"><Icon name="Settings" aria-hidden="true" className="size-4" /></summary>
         {createPortal(<div {...portalScopeProps} ref={panelRef} className="fixed z-50 w-64 max-w-[80vw] rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md">
           <fieldset disabled={visibility.pending} className="flex flex-col gap-1">
             <legend className="px-2 text-sm font-semibold">Sidebar options</legend>
