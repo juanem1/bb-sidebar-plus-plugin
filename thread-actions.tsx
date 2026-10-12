@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from "react";
+import { useRef, useState, type ReactElement, type RefObject } from "react";
 import type { PluginSidebarThread } from "@get-bb/plugin-sdk/app";
 import { experimental_useSidebarThreadActions, experimental_useSidebarThreadSplit } from "@get-bb/plugin-sdk/app";
 import { Icon } from "./ui/icon";
@@ -18,6 +18,8 @@ export function ThreadActions({ thread, onClose }: ThreadActionsProps): ReactEle
   const [title, setTitle] = useState<string>(thread.title ?? "");
   const [pending, setPending] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
+  // Escape unmounts the focused input; this keeps a removal-triggered blur from saving.
+  const renameCancelled: RefObject<boolean> = useRef<boolean>(false);
 
   async function submit(request: () => Promise<void>): Promise<void> {
     setPending(true);
@@ -52,24 +54,41 @@ export function ThreadActions({ thread, onClose }: ThreadActionsProps): ReactEle
         void submit(() => actions.setPinned(thread.id, !thread.isPinned));
       }}>
         <Icon name={thread.isPinned ? "PinOff" : "Pin"} aria-hidden="true" className="size-4 shrink-0" />
-        {thread.isPinned ? "Unpin" : "Pin"}
+        {thread.isPinned ? "Unpin" : "Pin thread"}
       </button>
       {renaming ? (
-        <form className="my-1 flex flex-col gap-2" onSubmit={(event) => {
-          event.preventDefault();
-          const nextTitle: string = title.trim();
-          if (nextTitle.length === 0 || pending) return;
-          void submit(() => actions.rename(thread.id, nextTitle));
-        }}>
-          <input aria-label="Thread name" autoFocus className="w-full rounded border border-input bg-background px-2 py-1 text-sm" disabled={pending} value={title} onChange={(event) => setTitle(event.target.value)} />
-          <div className="flex gap-2">
-            <button className="cursor-pointer text-xs disabled:opacity-50" disabled={pending || title.trim().length === 0} type="submit">Save</button>
-            <button className="cursor-pointer text-xs disabled:opacity-50" disabled={pending} type="button" onClick={() => setRenaming(false)}>Cancel</button>
-          </div>
-        </form>
+        <input
+          aria-label="Thread name"
+          autoFocus
+          className="my-1 w-full rounded border border-input bg-background px-2 py-1 text-sm outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+          disabled={pending}
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          onKeyDown={(event) => {
+            // Enter commits through blur so saving has a single path.
+            if (event.key === "Enter") event.currentTarget.blur();
+            if (event.key === "Escape") {
+              event.stopPropagation();
+              renameCancelled.current = true;
+              setRenaming(false);
+            }
+          }}
+          onBlur={() => {
+            const nextTitle: string = title.trim();
+            if (renameCancelled.current || nextTitle.length === 0 || nextTitle === thread.title) {
+              setRenaming(false);
+              return;
+            }
+            void submit(() => actions.rename(thread.id, nextTitle));
+          }}
+        />
       ) : (
-        <button className={menuItemClass} disabled={pending} type="button" onClick={() => setRenaming(true)}>
-          <Icon name="Pencil" aria-hidden="true" className="size-4 shrink-0" />
+        <button className={menuItemClass} disabled={pending} type="button" onClick={() => {
+          renameCancelled.current = false;
+          setTitle(thread.title ?? "");
+          setRenaming(true);
+        }}>
+          <Icon name="Edit" aria-hidden="true" className="size-4 shrink-0" />
           Rename
         </button>
       )}

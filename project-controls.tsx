@@ -1,7 +1,7 @@
-import { useRef, type ReactElement, type RefObject } from "react";
+import { useRef, useState, type ReactElement, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { PluginSidebarProject } from "@get-bb/plugin-sdk/app";
-import { experimental_useSidebarThreadActions } from "@get-bb/plugin-sdk/app";
+import { experimental_useSidebarThreadActions, useSdk } from "@get-bb/plugin-sdk/app";
 import type { ProjectVisibilityController } from "./use-project-visibility";
 import { useDismissibleMenu } from "./hooks/useDismissibleMenu";
 import { useRightMenuPanel } from "./hooks/useRightMenuPanel";
@@ -37,6 +37,13 @@ interface ProjectControlsProps {
 
 export function ProjectControls({ anchorRef, children, project, pinned, visibility, onNavigate }: ProjectControlsProps): ReactElement {
   const actions = experimental_useSidebarThreadActions();
+  const sdk = useSdk();
+  const [renaming, setRenaming] = useState<boolean>(false);
+  const [name, setName] = useState<string>(project.name);
+  const [renamePending, setRenamePending] = useState<boolean>(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  // Escape unmounts the focused input; this keeps a removal-triggered blur from saving.
+  const renameCancelled: RefObject<boolean> = useRef<boolean>(false);
   const portalScopeProps = usePortalScopeProps();
   const panelRef: RefObject<HTMLDivElement | null> = useRef<HTMLDivElement | null>(null);
   const menuRef: RefObject<HTMLDetailsElement | null> = useDismissibleMenu(panelRef);
@@ -59,7 +66,7 @@ export function ProjectControls({ anchorRef, children, project, pinned, visibili
             type="button"
           >
             <Icon name={pinned ? "PinOff" : "Pin"} aria-hidden="true" className="size-4 shrink-0" />
-            {pinned ? "Unpin" : "Pin"}
+            {pinned ? "Unpin" : "Pin project"}
           </button>
           <button
             className={menuItemClass}
@@ -68,8 +75,9 @@ export function ProjectControls({ anchorRef, children, project, pinned, visibili
             type="button"
           >
             <Icon name="EyeOff" aria-hidden="true" className="size-4 shrink-0" />
-            Hide
+            Hide from list
           </button>
+          <div role="separator" className="my-1 border-t border-border" />
           <button
             className={menuItemClass}
             onClick={() => {
@@ -79,8 +87,72 @@ export function ProjectControls({ anchorRef, children, project, pinned, visibili
             }}
             type="button"
           >
-            <Icon name="Info" aria-hidden="true" className="size-4 shrink-0" />
-            Details
+            <Icon name="Settings" aria-hidden="true" className="size-4 shrink-0" />
+            Project settings
+          </button>
+          {renaming ? (
+            <div className="my-1 flex flex-col gap-2 px-2">
+              <input
+                aria-label="Project name"
+                autoFocus
+                className="w-full rounded border border-input bg-background px-2 py-1 text-sm outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0"
+                disabled={renamePending}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                onKeyDown={(event) => {
+                  // Enter commits through blur so saving has a single path.
+                  if (event.key === "Enter") event.currentTarget.blur();
+                  if (event.key === "Escape") {
+                    event.stopPropagation();
+                    renameCancelled.current = true;
+                    setRenaming(false);
+                  }
+                }}
+                onBlur={() => {
+                  const nextName: string = name.trim();
+                  if (renameCancelled.current || nextName.length === 0 || nextName === project.name) {
+                    setRenaming(false);
+                    return;
+                  }
+                  setRenamePending(true);
+                  setRenameError(null);
+                  sdk.projects.update({ projectId: project.id, name: nextName }).then(() => {
+                    setRenaming(false);
+                    if (menuRef.current !== null) menuRef.current.open = false;
+                  }, (cause: unknown) => {
+                    setRenameError(cause instanceof Error ? cause.message : "Unknown error.");
+                  }).finally(() => setRenamePending(false));
+                }}
+              />
+              {renameError === null ? null : <p role="alert" className="text-xs text-destructive">Could not rename this project. {renameError}</p>}
+            </div>
+          ) : (
+            <button className={menuItemClass} type="button" onClick={() => {
+              renameCancelled.current = false;
+              setName(project.name);
+              setRenameError(null);
+              setRenaming(true);
+            }}>
+              <Icon name="Edit" aria-hidden="true" className="size-4 shrink-0" />
+              Rename
+            </button>
+          )}
+          <div role="separator" className="my-1 border-t border-border" />
+          <button
+            className={`${menuItemClass} text-destructive hover:text-destructive`}
+            onClick={() => {
+              if (menuRef.current !== null) menuRef.current.open = false;
+              // The SDK exposes no host confirmation for project deletion, and it removes every thread.
+              if (!window.confirm(`Remove "${project.name}" and all its threads? This cannot be undone.`)) return;
+              sdk.projects.delete({ projectId: project.id }).catch((cause: unknown) => {
+                const message: string = cause instanceof Error ? cause.message : "Unknown error.";
+                window.alert(`Could not remove "${project.name}". ${message}`);
+              });
+            }}
+            type="button"
+          >
+            <Icon name="Trash2" aria-hidden="true" className="size-4 shrink-0" />
+            Remove
           </button>
         </div>, document.body)}
       </details>
