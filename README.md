@@ -2,6 +2,11 @@
 
 A [bb](https://getbb.app) plugin that enhances the sidebar thread list with a project-first view. Pin, hide, reorder, and search projects, and see each thread's status, branch, and pull request without opening it.
 
+![Sidebar Plus thread menu](screenshots/thread-menu.jpg)
+![Sidebar Plus project menu](screenshots/project-menu.jpg)
+![Sidebar Plus project settings](screenshots/project-settings.jpg)
+![Sidebar Plus sections](screenshots/sections.jpg)
+
 ## Features
 
 - Project-first sidebar with pinned, hidden, and collapsible sections
