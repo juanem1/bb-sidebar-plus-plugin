@@ -65,9 +65,9 @@ function PullRequestBadge({ caption, presentation }: { caption: string; presenta
 
 function DetailRow({ icon, label, value }: { icon: string; label: string; value: string }): ReactElement {
   return (
-    <p className="flex min-w-0 items-center gap-2 text-sm" title={value}>
-      <Icon name={icon} aria-label={label} className="size-4 shrink-0 text-muted-foreground" />
-      <span className="truncate">{value}</span>
+    <p className="flex min-w-0 items-start gap-2 text-sm" title={value}>
+      <Icon name={icon} aria-label={label} className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 break-words">{value}</span>
     </p>
   );
 }
