@@ -364,7 +364,9 @@ function SidebarPlusThreadList({ activeThreadId, onNavigate }: PluginThreadListP
   const [pinnedCollapsed, setPinnedCollapsed] = useState<boolean>(false);
   const [projectsCollapsed, setProjectsCollapsed] = useState<boolean>(false);
   const [hiddenCollapsed, setHiddenCollapsed] = useState<boolean>(true);
+  const [unassignedCollapsed, setUnassignedCollapsed] = useState<boolean>(false);
   const pinnedContentId: string = useId();
+  const unassignedContentId: string = useId();
   const pinnedThreadsContentId: string = useId();
   const projectsContentId: string = useId();
   const hiddenContentId: string = useId();
@@ -391,15 +393,19 @@ function SidebarPlusThreadList({ activeThreadId, onNavigate }: PluginThreadListP
   const hiddenIds: ReadonlySet<string> = new Set(state.hiddenProjectIds);
   const pinnedIds: ReadonlySet<string> = new Set(state.pinnedProjectIds);
   const search: string = state.showSearch ? query.trim().toLocaleLowerCase() : "";
-  const visibleProjects: PluginSidebarProject[] = orderProjects(projects.filter((project) => !hiddenIds.has(project.id)), state.projectOrder);
+  // Threads outside any project live in BB's implicit personal project; list them under "Threads" instead.
+  const personalProjectIds: ReadonlySet<string> = new Set(projects.filter((project) => project.isPersonal).map((project) => project.id));
+  const workspaceProjects: PluginSidebarProject[] = projects.filter((project) => !project.isPersonal);
+  const visibleProjects: PluginSidebarProject[] = orderProjects(workspaceProjects.filter((project) => !hiddenIds.has(project.id)), state.projectOrder);
   const matchingProjects: PluginSidebarProject[] = visibleProjects.filter((project) => project.name.toLocaleLowerCase().includes(search));
   const pinnedProjects: PluginSidebarProject[] = orderProjects(visibleProjects.filter((project) => pinnedIds.has(project.id)), state.pinnedProjectIds);
   const ordinaryProjects: PluginSidebarProject[] = matchingProjects.filter((project) => !pinnedIds.has(project.id));
-  const hiddenProjects: PluginSidebarProject[] = orderProjects(projects.filter((project) => hiddenIds.has(project.id)), state.projectOrder);
+  const hiddenProjects: PluginSidebarProject[] = orderProjects(workspaceProjects.filter((project) => hiddenIds.has(project.id)), state.projectOrder);
   const threadsByProjectId: ReadonlyMap<string, readonly PluginSidebarThread[]> = getVisibleThreadsByProjectId(threads);
   const projectNameById: ReadonlyMap<string, string> = new Map(projects.map((project) => [project.id, project.name]));
   const visibleProjectIds: ReadonlySet<string> = new Set(visibleProjects.map((project) => project.id));
-  const pinnedThreads: PluginSidebarThread[] = threads.filter((thread) => !thread.isHidden && thread.isPinned && visibleProjectIds.has(thread.projectId)).sort(compareThreadsByUpdatedAtDescending);
+  const pinnedThreads: PluginSidebarThread[] = threads.filter((thread) => !thread.isHidden && thread.isPinned && (visibleProjectIds.has(thread.projectId) || personalProjectIds.has(thread.projectId))).sort(compareThreadsByUpdatedAtDescending);
+  const unassignedThreads: PluginSidebarThread[] = !state.showPersonalThreads ? [] : threads.filter((thread) => !thread.isHidden && !thread.isPinned && personalProjectIds.has(thread.projectId)).sort(compareThreadsByUpdatedAtDescending);
   const ordinaryIds: ReadonlySet<string> = new Set(ordinaryProjects.map((project) => project.id));
   const flatThreads: PluginSidebarThread[] = threads.filter((thread) => !thread.isHidden && !thread.isPinned && ordinaryIds.has(thread.projectId)).sort(compareThreadsByUpdatedAtDescending);
 
@@ -447,13 +453,26 @@ function SidebarPlusThreadList({ activeThreadId, onNavigate }: PluginThreadListP
             {state.grouping === "none" ? (
               flatThreads.length === 0 ? <p className="px-1 text-sm text-muted-foreground">No visible threads in matching projects.</p> : <ul aria-label="Threads">{flatThreads.map((thread) => <ThreadRow key={thread.id} thread={thread} activeThreadId={activeThreadId} onNavigate={onNavigate} projectName={projectNameById.get(thread.projectId)} />)}</ul>
             ) : ordinaryProjects.length === 0 ? (
-              <p className="px-1 text-sm text-muted-foreground">{projects.length === 0 ? "No projects found." : "No matching projects in All projects."}</p>
+              <p className="px-1 text-sm text-muted-foreground">{workspaceProjects.length === 0 ? "No projects found." : "No matching projects in All projects."}</p>
             ) : (
               <section aria-label="Project list"><ProjectOrder projects={ordinaryProjects} pending={visibility.pending} move={visibility.moveProject} render={renderOrdinary} /></section>
             )}
           </div>
         </SlidingContent>
       </section>
+      {unassignedThreads.length > 0 ? <div role="separator" className="border-t border-sidebar-border" /> : null}
+      {unassignedThreads.length > 0 ? (
+        <section aria-label="Threads without a project">
+          <h2 className="px-1 py-1 text-sm font-bold text-muted-foreground">
+            <button aria-expanded={!unassignedCollapsed} aria-controls={unassignedContentId} className="flex w-full cursor-pointer items-center gap-2 text-left" onClick={() => setUnassignedCollapsed(!unassignedCollapsed)} type="button">
+              <span className="flex items-center gap-1">Threads<Icon name="ChevronRight" aria-hidden="true" className={unassignedCollapsed ? "size-4 shrink-0" : "size-4 shrink-0 rotate-90"} /></span>
+            </button>
+          </h2>
+          <SlidingContent collapsed={unassignedCollapsed} contentId={unassignedContentId}>
+            <ul className="pt-1">{unassignedThreads.map((thread) => <ThreadRow key={thread.id} thread={thread} activeThreadId={activeThreadId} onNavigate={onNavigate} projectName={undefined} />)}</ul>
+          </SlidingContent>
+        </section>
+      ) : null}
       {hiddenProjects.length > 0 ? <div role="separator" className="border-t border-sidebar-border" /> : null}
       {hiddenProjects.length > 0 ? (
         <section aria-label="Hidden projects">

@@ -141,6 +141,15 @@ await test("validated v1 preferences migrate without losing pin and hide members
   });
 });
 
+await test("v2 preferences saved before showPersonalThreads existed still load with the switch on", async (): Promise<void> => {
+  await withHost(async (host): Promise<void> => {
+    host.seed({ version: 2, revision: 3, pinnedProjectIds: [], hiddenProjectIds: [], projectOrder: [], sorting: "name", grouping: "project", showSearch: true, collapsedProjectIds: [] });
+    const state: ProjectVisibilityState = await host.call("getProjectVisibility", null);
+    assert.equal(state.showPersonalThreads, true);
+    assert.equal((await host.call("setShowPersonalThreads", { showPersonalThreads: false })).showPersonalThreads, false);
+  });
+});
+
 await test("corrupt state and invalid RPC input fail explicitly without resetting preferences", async (): Promise<void> => {
   await withHost(async (host): Promise<void> => {
     host.seed({ version: 1, revision: 0, pinnedProjectIds: ["a"], hiddenProjectIds: ["a"] });

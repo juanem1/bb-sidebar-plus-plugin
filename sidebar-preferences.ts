@@ -37,6 +37,8 @@ export const projectVisibilityStateSchema = membershipsSchema.extend({
   sorting: z.enum(["name", "manual"]),
   grouping: z.enum(["project", "none"]),
   showSearch: z.boolean(),
+  // Default keeps v2 snapshots saved before this field existed valid.
+  showPersonalThreads: z.boolean().default(true),
   collapsedProjectIds: projectIdListSchema,
 }).strict().superRefine(validateMemberships);
 
@@ -57,6 +59,7 @@ export function createInitialProjectVisibilityState(): ProjectVisibilityState {
     sorting: "name",
     grouping: "project",
     showSearch: false,
+    showPersonalThreads: true,
     collapsedProjectIds: [],
   };
 }

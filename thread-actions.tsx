@@ -36,7 +36,7 @@ export function ThreadActions({ thread, onClose }: ThreadActionsProps): ReactEle
   }
 
   return (
-    <section aria-label="Thread actions" className="mt-3 border-t border-border pt-2">
+    <section aria-label="Thread actions" className="mt-3 border-t border-border pt-2 first:mt-0 first:border-t-0 first:pt-0">
       <button className={menuItemClass} disabled={pending || !split.isAvailable} type="button" onClick={() => {
         actions.open(thread.id, { split: true });
         onClose();

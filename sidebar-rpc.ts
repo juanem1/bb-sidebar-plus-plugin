@@ -18,6 +18,7 @@ export const sidebarRpcContract = defineRpcContract({
   selectManualOrder: { input: z.null(), output: projectVisibilityResultSchema },
   setGrouping: { input: z.object({ grouping: z.enum(["project", "none"]) }).strict(), output: projectVisibilityResultSchema },
   setShowSearch: { input: z.object({ showSearch: z.boolean() }).strict(), output: projectVisibilityResultSchema },
+  setShowPersonalThreads: { input: z.object({ showPersonalThreads: z.boolean() }).strict(), output: projectVisibilityResultSchema },
   collapseProject: { input: projectInput, output: projectVisibilityResultSchema },
   expandProject: { input: projectInput, output: projectVisibilityResultSchema },
 });
