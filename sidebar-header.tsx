@@ -40,6 +40,7 @@ export function SidebarHeader({ visibility, collapsed, onToggle, contentId }: Si
             <label className={controlClass}>Group by<select className="cursor-pointer" value={state.grouping} onChange={(event) => { void visibility.setGrouping(event.target.value === "none" ? "none" : "project"); }}><option value="project">By project</option><option value="none">None</option></select></label>
             <label className={controlClass}>Project order<select className="cursor-pointer" value={state.sorting} onChange={(event) => { void (event.target.value === "name" ? visibility.sortProjectsByName() : visibility.selectManualOrder()); }}><option value="name">By name</option><option value="manual">Manual</option></select></label>
             <label className={controlClass}>Show search<Switch checked={state.showSearch} onCheckedChange={(checked) => { void visibility.setShowSearch(checked); }} /></label>
+            <label className={controlClass}>Show personal threads<Switch checked={state.showPersonalThreads} onCheckedChange={(checked) => { void visibility.setShowPersonalThreads(checked); }} /></label>
           </fieldset>
         </div>, document.body)}
       </details>

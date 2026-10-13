@@ -184,6 +184,7 @@ export default async function plugin(bb: BbPluginApi): Promise<void> {
     selectManualOrder: () => update((current) => ({ ...current, sorting: "manual" })),
     setGrouping: ({ grouping }) => update((current) => ({ ...current, grouping })),
     setShowSearch: ({ showSearch }) => update((current) => ({ ...current, showSearch })),
+    setShowPersonalThreads: ({ showPersonalThreads }) => update((current) => ({ ...current, showPersonalThreads })),
     collapseProject: ({ projectId }) => update((current) => {
       validateProject(current, projectId);
       return { ...current, collapsedProjectIds: current.collapsedProjectIds.includes(projectId) ? current.collapsedProjectIds : [...current.collapsedProjectIds, projectId] };

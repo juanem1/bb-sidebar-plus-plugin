@@ -24,6 +24,7 @@ export interface ProjectVisibilityController {
   selectManualOrder(): Promise<void>;
   setGrouping(grouping: ProjectVisibilityState["grouping"]): Promise<void>;
   setShowSearch(showSearch: boolean): Promise<void>;
+  setShowPersonalThreads(showPersonalThreads: boolean): Promise<void>;
   collapseProject(projectId: string): Promise<void>;
   expandProject(projectId: string): Promise<void>;
   syncProjects(): Promise<void>;
@@ -105,6 +106,7 @@ export function useProjectVisibility(): ProjectVisibilityController {
     selectManualOrder: () => submit(() => rpc.call("selectManualOrder", null)),
     setGrouping: (grouping) => submit(() => rpc.call("setGrouping", { grouping })),
     setShowSearch: (showSearch) => submit(() => rpc.call("setShowSearch", { showSearch })),
+    setShowPersonalThreads: (showPersonalThreads) => submit(() => rpc.call("setShowPersonalThreads", { showPersonalThreads })),
     collapseProject: (projectId) => submit(() => rpc.call("collapseProject", { projectId })),
     expandProject: (projectId) => submit(() => rpc.call("expandProject", { projectId })),
     syncProjects: () => submit(() => rpc.call("syncProjects", null)),
